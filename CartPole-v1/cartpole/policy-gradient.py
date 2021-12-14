@@ -51,10 +51,12 @@ class PolicyGradientUpdater(policy.PolicyUpdater):
         batch_returns = []
 
         for trajectory in trajectories:
-            for state, action in trajectory.state_action():
+            reward_to_go = trajectory.reward
+            for state, action, reward in trajectory.state_action_reward():
                 batch_states.append(state)
                 batch_actions.append(action)
-                batch_returns.append(trajectory.reward)
+                batch_returns.append(reward_to_go)
+                reward_to_go -= reward
 
         trainer.zero_grad()
         states_tensor = torch.as_tensor(batch_states, dtype=torch.float32)
