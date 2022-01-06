@@ -3,6 +3,7 @@ from collections import defaultdict
 from . import experience
 import numpy as np
 from typing import List
+from torch import nn
 
 
 # A policy is a distribution over actions given states. $\pi(a | s)$.
@@ -31,7 +32,7 @@ class PolicyUpdater(ABC):
     def step_update(self, step : experience.Step, next_state : np.array, next_action : np.array):
         pass
 
-    def epoch_update(self, trajectories : List[experience.Trajectory]):
+    def epoch_update(self, trajectories : experience.EpochTrajectories):
         pass
 
 
@@ -46,3 +47,25 @@ class Learned:
 
     def __init__(self, pi : Policy):
         self.pi = pi
+
+
+def dense_network(layer_sizes : List[int],
+                  activation : nn.Module = nn.Tanh,
+                  final_activation : nn.Module = nn.Identity) -> nn.Sequential:
+    layers = []
+    for li in range(len(layer_sizes) - 1):
+        layers.append(nn.Linear(layer_sizes[li], layer_sizes[li + 1]))
+        if li == len(layer_sizes) - 2:
+            layers.append(final_activation())
+        else:
+            layers.append(activation())
+
+    net = nn.Sequential(*layers)
+
+    def init_weights(m):
+        if type(m) == nn.Linear:
+            nn.init.xavier_uniform_(m.weight)
+
+    net.apply(init_weights)
+
+    return net

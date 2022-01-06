@@ -5,7 +5,10 @@ import numpy as np
 
 class Trainer:
 
-    exp_buffer = experience.ExperienceBuffer()
+    exp_buffer : experience.ExperienceBuffer
+
+    def __init__(self, gamma : float = 0.99, lam : float = 0.95):
+        self.exp_buffer = experience.ExperienceBuffer(gamma, lam)
 
     def run_trajectory(self,
                        policy : policy.Policy,
@@ -54,20 +57,43 @@ class Trainer:
 
             total_reward = 0.0
             total_len = 0
-            epoch_trajectories = []
+            self.exp_buffer.new_epoch()
 
             policy_sampler.update_epoch(epoch)
 
-            for episode in range(total_episodes):
+            for _ in range(total_episodes):
 
                 trajectory = self.run_trajectory(policy, policy_sampler, policy_updater, environment)
 
                 total_reward += trajectory.reward
                 total_len += len(trajectory.steps)
 
-                epoch_trajectories.append(trajectory)
                 self.exp_buffer.add(trajectory)
 
-            policy_updater.epoch_update(epoch_trajectories)
+            self.exp_buffer.finish_epoch()
+            policy_updater.epoch_update(self.exp_buffer.latest_epoch())
 
-            print('Average epoch reward: %3f \tAverage episode len: %3f' % (total_reward / total_episodes, total_len / total_episodes))
+            print('Epoch: %3d\tAverage epoch reward: %3f \tAverage episode len: %3f' % (epoch, total_reward / total_episodes, total_len / total_episodes))
+
+    def display_trajectory(self,
+                           policy : policy.Policy,
+                           policy_sampler : policy.PolicySampler,
+                           environment):
+        done = False
+        # environment.reset() returns an observation
+        state = environment.reset()
+        action = policy_sampler.action(policy, state)
+
+        while not done:
+
+            environment.render()
+
+            # Take the step
+            next_state, reward, done, _ = environment.step(action)
+
+            # Choose the next step based on the current policy
+            next_action = policy_sampler.action(policy, next_state.copy())
+
+            # Prepare for next iteration
+            state = next_state
+            action = next_action
